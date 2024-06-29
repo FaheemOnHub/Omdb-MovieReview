@@ -62,6 +62,7 @@ export default function App() {
 
   useEffect(
     function () {
+      const controller = new AbortController(); //AbortController is a built-in class in JavaScript, which allows you to abort fetch requests.
       async function fetchData() {
         try {
           setIsLoading(true);
@@ -70,16 +71,13 @@ export default function App() {
             `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`
           );
           const data = await response.json();
-          console.log(query);
 
           if (data.Response == "False") throw new Error("Movie not found");
           setMovies(data.Search);
           setIsLoading(false);
-          console.log(data.Search);
         } catch (error) {
           setIsLoading(false);
           setError(error.message);
-          console.log(error.message);
         }
       }
       if (query.length < 3) {
@@ -88,10 +86,17 @@ export default function App() {
         return;
       }
       fetchData();
+      //This is a cleanup function
+      //each time a new keystroke is hit, cleanup function will be called before the next fetch request
+      return () => {
+        //cleanup function
+        controller.abort();
+      };
     },
     [query]
   );
   return (
+    //returning the JSX
     <>
       <NavBar>
         <Search query={query} setQuery={setQuery} />
@@ -138,7 +143,7 @@ export default function App() {
     const isMovieAlreadWatched = watched.some(
       (watchedMovie) =>
         watchedMovie.imdbID === movie.imdbID &&
-        (watchedMovie.userRating = movie.userRating)
+        (watchedMovie.userRating = movie.userRating) //this line is added to update the userRating of the movie, if the movie is already watched
     );
     if (!isMovieAlreadWatched) {
       return setWatched((watched) => [...watched, movie]);
@@ -183,6 +188,28 @@ function MovieDetails({ selectedId, closeMovieDetail, KEY, handleAddWatched }) {
   }
   useEffect(
     function () {
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Escape" && selectedId != null) {
+          closeMovieDetail();
+        }
+      });
+      return function () {
+        //the removeEventListener second argument should be same to same as the second argument of addEventListener
+        //why included removeEventListener, because we don't want to add multiple event listeners,
+        //more exactly we don't want to add multiple event listeners for the same event
+        //how multiple event listeners are added: each time the component re-renders,
+        //useEffect is called then addEventListener is called
+        document.removeEventListener("keydown", (e) => {
+          if (e.code === "Escape" && selectedId != null) {
+            closeMovieDetail();
+          }
+        });
+      };
+    },
+    [closeMovieDetail, selectedId]
+  );
+  useEffect(
+    function () {
       async function getMovieDetails() {
         const res = await fetch(
           `http://www.omdbapi.com/?apikey=${KEY}&i=${selectedId}`
@@ -193,7 +220,7 @@ function MovieDetails({ selectedId, closeMovieDetail, KEY, handleAddWatched }) {
       getMovieDetails();
       setuserRatings("");
     },
-    [selectedId]
+    [selectedId, KEY]
   );
   useEffect(
     function () {
